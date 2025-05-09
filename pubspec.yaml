@@ -30,7 +30,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  expressions: ^0.2.5+2  # используем старую версию
+  expressions: ^0.2.5+2
+  shared_preferences: ^2.2.2
 
   cupertino_icons: ^1.0.8
 

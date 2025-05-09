@@ -1,6 +1,10 @@
+// main.dart
 import 'package:flutter/material.dart';
 import 'package:expressions/expressions.dart';
-import 'mile_converter_screen.dart'; // импортируем экран конвертера
+import 'package:shared_preferences/shared_preferences.dart';
+import 'mile_converter_screen.dart';
+import 'history_screen.dart';
+
 
 void main() {
   runApp(MyApp());
@@ -23,22 +27,27 @@ class Calculator extends StatefulWidget {
 class _CalculatorState extends State<Calculator> {
   String _output = '0';
   String _input = '';
+  List<String> _history = [];
 
-  void _buttonPressed(String buttonText) {
+  void _buttonPressed(String buttonText) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+
     setState(() {
       if (buttonText == 'C') {
         _input = '';
         _output = '0';
       } else if (buttonText == '=') {
         try {
-          final replacedInput = _input
-              .replaceAll('x', '*')
-              .replaceAll('÷', '/');
-
+          final replacedInput = _input.replaceAll('x', '*').replaceAll('÷', '/');
           final expression = Expression.parse(replacedInput);
           final evaluator = ExpressionEvaluator();
           final result = evaluator.eval(expression, {});
           _output = result.toString();
+
+          final timestamp = DateTime.now().toString().substring(0, 16);
+          final record = '$_input = $_output @ $timestamp';
+          _history.add(record);
+          prefs.setStringList('history', _history);
         } catch (e) {
           _output = 'Error';
         }
@@ -50,10 +59,32 @@ class _CalculatorState extends State<Calculator> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _loadHistory();
+  }
+
+  void _loadHistory() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _history = prefs.getStringList('history') ?? [];
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('Flutter Calculator'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.history),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => HistoryScreen()),
+            ),
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
@@ -66,56 +97,28 @@ class _CalculatorState extends State<Calculator> {
               style: TextStyle(fontSize: 48, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: <Widget>[
-                _buildButton('7'),
-                _buildButton('8'),
-                _buildButton('9'),
-                _buildButton('÷'),
-              ],
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: <Widget>[
-                _buildButton('4'),
-                _buildButton('5'),
-                _buildButton('6'),
-                _buildButton('x'),
-              ],
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: <Widget>[
-                _buildButton('1'),
-                _buildButton('2'),
-                _buildButton('3'),
-                _buildButton('-'),
-              ],
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: <Widget>[
-                _buildButton('C'),
-                _buildButton('0'),
-                _buildButton('='),
-                _buildButton('+'),
-              ],
-            ),
-            // Кнопка для перехода на экран конвертера
+            _buildButtonRow(['7', '8', '9', '÷']),
+            _buildButtonRow(['4', '5', '6', 'x']),
+            _buildButtonRow(['1', '2', '3', '-']),
+            _buildButtonRow(['C', '0', '=', '+']),
             SizedBox(height: 20),
             ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => MileConverterScreen()),
-                );
-              },
-              child: Text('Go to Kilometer to Mile Converter'),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => MileConverterScreen()),
+              ),
+              child: Text('Go to Converter'),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Row _buildButtonRow(List<String> buttons) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: buttons.map((btn) => _buildButton(btn)).toList(),
     );
   }
 
