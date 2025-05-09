@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:expressions/expressions.dart';  
+import 'package:expressions/expressions.dart';
+import 'mile_converter_screen.dart'; // импортируем экран конвертера
 
 void main() {
   runApp(MyApp());
@@ -19,9 +20,9 @@ class Calculator extends StatefulWidget {
   _CalculatorState createState() => _CalculatorState();
 }
 
-  class _CalculatorState extends State<Calculator> {
-    String _output = '0';
-    String _input = '';
+class _CalculatorState extends State<Calculator> {
+  String _output = '0';
+  String _input = '';
 
   void _buttonPressed(String buttonText) {
     setState(() {
@@ -30,7 +31,6 @@ class Calculator extends StatefulWidget {
         _output = '0';
       } else if (buttonText == '=') {
         try {
-          // Заменяем символы 'x' и '÷' на '*', '/' перед вычислением
           final replacedInput = _input
               .replaceAll('x', '*')
               .replaceAll('÷', '/');
@@ -48,7 +48,6 @@ class Calculator extends StatefulWidget {
       }
     });
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -102,6 +101,17 @@ class Calculator extends StatefulWidget {
                 _buildButton('='),
                 _buildButton('+'),
               ],
+            ),
+            // Кнопка для перехода на экран конвертера
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => MileConverterScreen()),
+                );
+              },
+              child: Text('Go to Kilometer to Mile Converter'),
             ),
           ],
         ),
