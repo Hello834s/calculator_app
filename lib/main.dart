@@ -1,12 +1,21 @@
-// main.dart
 import 'package:flutter/material.dart';
 import 'package:expressions/expressions.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'mile_converter_screen.dart';
 import 'history_screen.dart';
 
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
 
-void main() {
+  final currentUser = FirebaseAuth.instance.currentUser;
+  if (currentUser == null) {
+    await FirebaseAuth.instance.signInAnonymously();
+  }
+
   runApp(MyApp());
 }
 
@@ -30,45 +39,46 @@ class _CalculatorState extends State<Calculator> {
   List<String> _history = [];
 
   void _buttonPressed(String buttonText) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    setState(() {
-      if (buttonText == 'C') {
+    if (buttonText == 'C') {
+      setState(() {
         _input = '';
         _output = '0';
-      } else if (buttonText == '=') {
-        try {
-          final replacedInput = _input.replaceAll('x', '*').replaceAll('÷', '/');
-          final expression = Expression.parse(replacedInput);
-          final evaluator = ExpressionEvaluator();
-          final result = evaluator.eval(expression, {});
-          _output = result.toString();
+      });
+    } else if (buttonText == '=') {
+      try {
+        final replacedInput = _input.replaceAll('x', '*').replaceAll('÷', '/');
+        final expression = Expression.parse(replacedInput);
+        final evaluator = ExpressionEvaluator();
+        final result = evaluator.eval(expression, {});
+        final output = result.toString();
+        final timestamp = DateTime.now();
 
-          final timestamp = DateTime.now().toString().substring(0, 16);
-          final record = '$_input = $_output @ $timestamp';
+        setState(() {
+          _output = output;
+          final record = '$_input = $output @ ${timestamp.toString().substring(0, 16)}';
           _history.add(record);
-          prefs.setStringList('history', _history);
-        } catch (e) {
-          _output = 'Error';
+        });
+
+        final uid = FirebaseAuth.instance.currentUser?.uid;
+        if (uid != null) {
+          await FirebaseFirestore.instance.collection('history').add({
+            'uid': uid,
+            'expression': _input,
+            'result': output,
+            'timestamp': timestamp,
+          });
         }
-      } else {
+      } catch (e) {
+        setState(() {
+          _output = 'Error';
+        });
+      }
+    } else {
+      setState(() {
         _input += buttonText;
         _output = _input;
-      }
-    });
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _loadHistory();
-  }
-
-  void _loadHistory() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _history = prefs.getStringList('history') ?? [];
-    });
+      });
+    }
   }
 
   @override

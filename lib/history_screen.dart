@@ -1,54 +1,52 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
-class HistoryScreen extends StatefulWidget {
-  @override
-  _HistoryScreenState createState() => _HistoryScreenState();
-}
-
-class _HistoryScreenState extends State<HistoryScreen> {
-  List<String> _history = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _loadHistory();
-  }
-
-  Future<void> _loadHistory() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _history = prefs.getStringList('history') ?? [];
-    });
-  }
-
-  Future<void> _clearHistory() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('history');
-    setState(() {
-      _history.clear();
-    });
-  }
-
+class HistoryScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Calculation History'),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.delete),
-            onPressed: _clearHistory,
-          ),
-        ],
-      ),
-      body: _history.isEmpty
-          ? Center(child: Text('No history yet.'))
-          : ListView.builder(
-              itemCount: _history.length,
-              itemBuilder: (context, index) {
-                return ListTile(
-                  title: Text(_history[index]),
+      appBar: AppBar(title: Text('История')),
+      body: uid == null
+          ? Center(child: Text('Пользователь не авторизован'))
+          : StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('history')
+                  .where('uid', isEqualTo: uid)
+                  .orderBy('timestamp', descending: true)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Text('Ошибка загрузки истории: ${snapshot.error}'),
+                  );
+                }
+
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(child: CircularProgressIndicator());
+                }
+
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return Center(child: Text('История пуста'));
+                }
+
+                final docs = snapshot.data!.docs;
+
+                return ListView.builder(
+                  itemCount: docs.length,
+                  itemBuilder: (context, index) {
+                    final data = docs[index];
+                    final expression = data['expression'];
+                    final result = data['result'];
+                    final timestamp = (data['timestamp'] as Timestamp).toDate();
+
+                    return ListTile(
+                      title: Text('$expression = $result'),
+                      subtitle: Text(timestamp.toString().substring(0, 16)),
+                    );
+                  },
                 );
               },
             ),
